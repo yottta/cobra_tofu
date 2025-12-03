@@ -38,3 +38,10 @@ func ExtractExitCode(err error) (exitCode int, rootCause error) {
 	}
 	return expected.ExitCode, expected.Cause
 }
+
+func ExitCodeErr(code int, underlying error) *ExitCodeError {
+	return &ExitCodeError{
+		Cause:    underlying,
+		ExitCode: code,
+	}
+}
