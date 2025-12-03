@@ -44,7 +44,7 @@ This command is always safe to run multiple times. Though subsequent runs may gi
 		uiOut := ui.build()
 
 		uiOut(fmt.Sprintf("from init runE: %#v, %v", args, ui))
-		return &ExitCodeError{ExitCode: 0}
+		return nil
 	}
 }
 

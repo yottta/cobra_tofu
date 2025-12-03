@@ -56,6 +56,10 @@ func CobraCommands() *cobra.Command {
 		}
 		return nil
 	}
+	rootCmd.PersistentPostRun = func(cmd *cobra.Command, args []string) {
+		wd, _ := os.Getwd()
+		fmt.Println("working directory: ", wd)
+	}
 
 	// customisation of the help text that is applied to this command and any sub-command of it
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {

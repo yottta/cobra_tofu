@@ -16,9 +16,8 @@ const (
 	DefaultErrorExitCode = 1
 )
 
-// ExitCodeError is the error that any command should return doesn't matter if the exit code is 0 or anything else.
-// This way, we allow the main flow to execute logic and print error messages in a custom way to be backwards
-// compatible.
+// ExitCodeError is the error that any command should return when a fatal error occurs.
+// A 0 code run should return no error.
 type ExitCodeError struct {
 	Cause    error
 	ExitCode int
