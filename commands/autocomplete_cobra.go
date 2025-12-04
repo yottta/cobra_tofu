@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/posener/complete/cmd/install"
 	"github.com/spf13/cobra"
 )
 
-// newCobraCompletionCommand shows how we can customise autocompletion for different shells
+// newCobraCompletionCommand shows how we can customise autocompletion for different shells with cobra
+// and with posener/complete.
 func newCobraCompletionCommand(rootCmd *cobra.Command) {
 	completionCmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
@@ -55,18 +57,33 @@ PowerShell:
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-		Run: func(cmd *cobra.Command, args []string) {
-			switch args[0] {
-			case "bash":
-				cmd.Root().GenBashCompletion(os.Stdout)
-			case "zsh":
-				cmd.Root().GenZshCompletion(os.Stdout)
-			case "fish":
-				cmd.Root().GenFishCompletion(os.Stdout, true)
-			case "powershell":
-				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+	}
+	legacy := completionCmd.Flags().Bool("legacy", false, "indicate that you want to install the legacy autocompletion scripts")
+	uninstall := completionCmd.Flags().Bool("uninstall", false, "remove the legacy autocompletion scripts")
+	completionCmd.Run = func(cmd *cobra.Command, args []string) {
+		if legacy != nil && *legacy {
+			if uninstall != nil && *uninstall {
+				if err := install.Uninstall(cmd.Root().Name()); err != nil {
+					fmt.Printf("failed to uninstall legacy scripts: %s\n", err)
+				}
+				return
 			}
-		},
+			if err := install.Install(cmd.Root().Name()); err != nil {
+				fmt.Printf("failed to install legacy scripts: %s\n", err)
+			}
+			return
+		}
+
+		switch args[0] {
+		case "bash":
+			cmd.Root().GenBashCompletion(os.Stdout)
+		case "zsh":
+			cmd.Root().GenZshCompletion(os.Stdout)
+		case "fish":
+			cmd.Root().GenFishCompletion(os.Stdout, true)
+		case "powershell":
+			cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+		}
 	}
 	rootCmd.AddCommand(completionCmd)
 }
