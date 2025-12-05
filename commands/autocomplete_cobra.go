@@ -1,12 +1,16 @@
 package commands
 
 import (
+	"embed"
 	"fmt"
 	"os"
 
 	"github.com/posener/complete/cmd/install"
 	"github.com/spf13/cobra"
 )
+
+//go:embed autocompletion_scripts/tofu.*
+var autocompletionFs embed.FS
 
 // newCobraCompletionCommand shows how we can customise autocompletion for different shells with cobra
 // and with posener/complete.
@@ -15,8 +19,48 @@ func newCobraCompletionCommand(rootCmd *cobra.Command) {
 		Use:   "completion [bash|zsh|fish|powershell]",
 		Short: "Generate completion script",
 
-		Long: fmt.Sprintf(`To load completions:
+		Long:      fmt.Sprintf(longDescription, rootCmd.Root().Name()),
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	}
+	legacy := completionCmd.Flags().Bool("legacy", false, "indicate that you want to install the legacy autocompletion scripts")
+	uninstall := completionCmd.Flags().Bool("uninstall", false, "remove the legacy autocompletion scripts")
+	outStream := completionCmd.Flags().String("out", "", "specify the file where this ")
 
+	completionCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if legacy != nil && *legacy {
+			if uninstall != nil && *uninstall {
+				if err := install.Uninstall(cmd.Root().Name()); err != nil {
+					return fmt.Errorf("failed to uninstall legacy scripts: %w", err)
+				}
+				return nil
+			}
+			if err := install.Install(cmd.Root().Name()); err != nil {
+				return fmt.Errorf("failed to install legacy scripts: %w", err)
+			}
+			return nil
+		}
+
+		dat, err := autocompletionFs.ReadFile(fmt.Sprintf("autocompletion_scripts/tofu.%s", args[0]))
+		if err != nil {
+			return fmt.Errorf("could not generate autocompletion script: %w", err)
+		}
+		out := os.Stdout
+		if outStream != nil && *outStream != "" {
+			f, err := os.OpenFile(*outStream, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+			if err != nil {
+				return fmt.Errorf("provided file %s could not be opened: %w", *outStream, err)
+			}
+			out = f
+		}
+
+		_, err = out.Write(dat)
+		return err
+	}
+	rootCmd.AddCommand(completionCmd)
+}
+
+const longDescription = `To load completions:
 Bash:
 
   $ source <(%[1]s completion bash)
@@ -53,37 +97,4 @@ PowerShell:
   # To load completions for every new session, run:
   PS> %[1]s completion powershell > %[1]s.ps1
   # and source this file from your PowerShell profile.
-`, rootCmd.Root().Name()),
-		DisableFlagsInUseLine: true,
-		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-	}
-	legacy := completionCmd.Flags().Bool("legacy", false, "indicate that you want to install the legacy autocompletion scripts")
-	uninstall := completionCmd.Flags().Bool("uninstall", false, "remove the legacy autocompletion scripts")
-	completionCmd.Run = func(cmd *cobra.Command, args []string) {
-		if legacy != nil && *legacy {
-			if uninstall != nil && *uninstall {
-				if err := install.Uninstall(cmd.Root().Name()); err != nil {
-					fmt.Printf("failed to uninstall legacy scripts: %s\n", err)
-				}
-				return
-			}
-			if err := install.Install(cmd.Root().Name()); err != nil {
-				fmt.Printf("failed to install legacy scripts: %s\n", err)
-			}
-			return
-		}
-
-		switch args[0] {
-		case "bash":
-			cmd.Root().GenBashCompletion(os.Stdout)
-		case "zsh":
-			cmd.Root().GenZshCompletion(os.Stdout)
-		case "fish":
-			cmd.Root().GenFishCompletion(os.Stdout, true)
-		case "powershell":
-			cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
-		}
-	}
-	rootCmd.AddCommand(completionCmd)
-}
+`
